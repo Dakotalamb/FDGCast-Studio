@@ -1,0 +1,38 @@
+name: Windows alpha build
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Validate source checkout
+        shell: pwsh
+        run: |
+          if (!(Test-Path CMakePresets.json) -or !(Test-Path CMakeLists.txt)) {
+            throw "FDGCast source is not in the repository root. Commit the extracted source before building."
+          }
+      - name: Check Visual Studio 2026 availability
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -version "[18.0,19.0)" -property installationPath
+          if (!$vs) { throw "Visual Studio 2026 (generator Visual Studio 18 2026) is not installed on this runner. Use a compatible Windows runner or change generator after validation." }
+      - name: Configure
+        run: cmake --preset windows-x64 -DFDGCAST_NATIVE_CONTROLS=OFF
+      - name: Build
+        run: cmake --build build_x64 --config RelWithDebInfo --parallel 4
+      - name: Upload diagnostic logs and output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FDGCast-Windows-alpha-build-output
+          path: |
+            build_x64/CMakeFiles/CMakeConfigureLog.yaml
+            build_x64/rundir/RelWithDebInfo/
+          if-no-files-found: warn
