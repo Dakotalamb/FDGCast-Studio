@@ -17,6 +17,21 @@ jobs:
           if (!(Test-Path "FDGCast-Windows-M1-source.zip")) { throw "Upload the source ZIP to release source-m1 first." }
           Expand-Archive "FDGCast-Windows-M1-source.zip" -DestinationPath source -Force
           if (!(Test-Path "source/FDGCast-source/CMakeLists.txt")) { throw "Expected source/FDGCast-source/CMakeLists.txt not found." }
+      - name: Restore missing OBS source submodules
+        shell: pwsh
+        working-directory: source/FDGCast-source
+        run: |
+          $modules = @{
+            "deps/libdshowcapture/src" = "https://github.com/obsproject/libdshowcapture.git"
+            "plugins/obs-browser" = "https://github.com/obsproject/obs-browser.git"
+            "plugins/obs-websocket" = "https://github.com/obsproject/obs-websocket.git"
+          }
+          foreach ($path in $modules.Keys) {
+            if (!(Test-Path "$path/CMakeLists.txt") -and !(Test-Path "$path/dshowcapture.hpp")) {
+              git clone --depth 1 $modules[$path] $path
+              if ($LASTEXITCODE -ne 0) { throw "Unable to restore $path" }
+            }
+          }
       - name: Check toolchain
         shell: pwsh
         run: |
