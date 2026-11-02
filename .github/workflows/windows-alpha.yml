@@ -1,8 +1,6 @@
-name: Windows alpha build
+name: FDGCast Windows alpha test
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 permissions:
   contents: read
 jobs:
@@ -10,29 +8,34 @@ jobs:
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Validate source checkout
+      - name: Download uploaded source archive
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download source-m1 --repo "${{ github.repository }}" --pattern "FDGCast-Windows-M1-source.zip" --dir .
+          if (!(Test-Path "FDGCast-Windows-M1-source.zip")) { throw "Upload the source ZIP to release source-m1 first." }
+          Expand-Archive "FDGCast-Windows-M1-source.zip" -DestinationPath source -Force
+          if (!(Test-Path "source/FDGCast-source/CMakeLists.txt")) { throw "Expected source/FDGCast-source/CMakeLists.txt not found." }
+      - name: Check toolchain
         shell: pwsh
         run: |
-          if (!(Test-Path CMakePresets.json) -or !(Test-Path CMakeLists.txt)) {
-            throw "FDGCast source is not in the repository root. Commit the extracted source before building."
-          }
-      - name: Check Visual Studio 2026 availability
+          cmake --version
+          & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationVersion
+      - name: Configure Windows build
         shell: pwsh
-        run: |
-          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -version "[18.0,19.0)" -property installationPath
-          if (!$vs) { throw "Visual Studio 2026 (generator Visual Studio 18 2026) is not installed on this runner. Use a compatible Windows runner or change generator after validation." }
-      - name: Configure
-        run: cmake --preset windows-x64 -DFDGCAST_NATIVE_CONTROLS=OFF
-      - name: Build
-        run: cmake --build build_x64 --config RelWithDebInfo --parallel 4
-      - name: Upload diagnostic logs and output
+        working-directory: source/FDGCast-source
+        run: cmake --preset windows-x64
+      - name: Build Windows alpha
+        shell: pwsh
+        working-directory: source/FDGCast-source
+        run: cmake --build --preset windows-x64
+      - name: Upload diagnostic logs and outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: FDGCast-Windows-alpha-build-output
+          name: FDGCast-alpha-build-diagnostics
           path: |
-            build_x64/CMakeFiles/CMakeConfigureLog.yaml
-            build_x64/rundir/RelWithDebInfo/
+            source/FDGCast-source/build_x64/CMakeFiles/CMakeConfigureLog.yaml
+            source/FDGCast-source/build_x64/rundir/
           if-no-files-found: warn
