@@ -32,6 +32,15 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw "Unable to restore $path" }
             }
           }
+          foreach ($path in $modules.Keys) {
+            if (Test-Path "$path/.git") {
+              git -C $path submodule update --init --recursive --depth 1
+              if ($LASTEXITCODE -ne 0) { throw "Nested submodule restore failed for $path" }
+            }
+          }
+          if (!(Test-Path "deps/libdshowcapture/src/external/capture-device-support/Library/EGAVResult.cpp")) {
+            throw "DirectShow capture-device-support sources still missing after recursive submodule update"
+          }
       - name: Check toolchain
         shell: pwsh
         run: |
