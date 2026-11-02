@@ -54,6 +54,30 @@ jobs:
         shell: pwsh
         working-directory: source/FDGCast-source
         run: cmake --build --preset windows-x64
+      - name: Package portable Windows alpha
+        shell: pwsh
+        working-directory: source/FDGCast-source
+        run: |
+          $runDir = "build_x64/rundir"
+          $exe = Get-ChildItem -Path $runDir -Filter obs64.exe -File -Recurse | Where-Object { $_.FullName -match '[\\/]bin[\\/]64bit[\\/]' } | Select-Object -First 1
+          if (!$exe) { throw "Built obs64.exe not found in runtime output; cannot package." }
+          $runtimeRoot = $exe.Directory.Parent.Parent.FullName
+          if (!(Test-Path (Join-Path $runtimeRoot "data"))) { throw "Runtime data directory missing: $runtimeRoot" }
+          $package = Join-Path (Get-Location) "FDGCast-Studio-Windows-Alpha"
+          New-Item -ItemType Directory -Force $package | Out-Null
+          Copy-Item (Join-Path $runtimeRoot "*") $package -Recurse -Force
+          $launch = Join-Path $package "Launch-FDGCast-Studio.bat"
+          Set-Content -Path $launch -Encoding ascii -Value '@echo off', 'cd /d "%~dp0bin\\64bit"', 'start "" "obs64.exe"'
+          Set-Content -Path (Join-Path $package "README-FIRST.txt") -Value "FDGCast Studio experimental Windows alpha. This is currently an OBS-based development build, not a finished rebranded application. Run Launch-FDGCast-Studio.bat. Keep the entire folder together. No installer is included. OBS GPL license and attribution are retained in the source project."
+          Compress-Archive -Path $package -DestinationPath "FDGCast-Studio-Windows-Alpha.zip" -Force
+          Write-Host "Portable alpha packaged from $runtimeRoot"
+      - name: Upload portable Windows alpha
+        uses: actions/upload-artifact@v4
+        with:
+          name: FDGCast-Studio-Windows-Alpha
+          path: source/FDGCast-source/FDGCast-Studio-Windows-Alpha.zip
+          if-no-files-found: error
+          retention-days: 30
       - name: Upload diagnostic logs and outputs
         if: always()
         uses: actions/upload-artifact@v4
