@@ -6,7 +6,7 @@ on:
     paths:
       - '.github/workflows/windows-alpha.yml'
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: windows-2025
@@ -107,11 +107,11 @@ jobs:
           $iss = @'
           [Setup]
           AppId={{FDF7C8A4-80CD-4F6A-AD94-9C73F07B45D1}
-          AppName=FDGCast Studio Alpha
+          AppName=FDGCast Studio
           AppVersion=0.1.0
           AppPublisher=Forged Destiny Gaming
-          DefaultDirName={autopf}\\FDGCast Studio Alpha
-          DefaultGroupName=FDGCast Studio Alpha
+          DefaultDirName={autopf}\\FDGCast Studio
+          DefaultGroupName=FDGCast Studio
           OutputDir=installer-output
           OutputBaseFilename=FDGCast-Studio-Setup
           Compression=lzma2
@@ -122,12 +122,12 @@ jobs:
           [Files]
           Source: "FDGCast-Studio-Windows-Alpha\\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
           [Icons]
-          Name: "{group}\\FDGCast Studio Alpha"; Filename: "{app}\\bin\\64bit\\obs64.exe"; WorkingDir: "{app}\\bin\\64bit"
-          Name: "{autodesktop}\\FDGCast Studio Alpha"; Filename: "{app}\\bin\\64bit\\obs64.exe"; WorkingDir: "{app}\\bin\\64bit"; Tasks: desktopicon
+          Name: "{group}\\FDGCast Studio"; Filename: "{app}\\bin\\64bit\\obs64.exe"; WorkingDir: "{app}\\bin\\64bit"
+          Name: "{autodesktop}\\FDGCast Studio"; Filename: "{app}\\bin\\64bit\\obs64.exe"; WorkingDir: "{app}\\bin\\64bit"; Tasks: desktopicon
           [Tasks]
           Name: desktopicon; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"
           [Run]
-          Filename: "{app}\\bin\\64bit\\obs64.exe"; WorkingDir: "{app}\\bin\\64bit"; Description: "Launch FDGCast Studio Alpha"; Flags: nowait postinstall skipifsilent
+          Filename: "{app}\\bin\\64bit\\obs64.exe"; WorkingDir: "{app}\\bin\\64bit"; Description: "Launch FDGCast Studio"; Flags: nowait postinstall skipifsilent
           '@
           Set-Content -Path "FDGCast-Studio-Installer.iss" -Value $iss -Encoding utf8
           & $iscc "FDGCast-Studio-Installer.iss"
@@ -141,6 +141,35 @@ jobs:
           path: source/FDGCast-source/installer-output/FDGCast-Studio-Setup.exe
           if-no-files-found: error
           retention-days: 30
+      - name: Publish GitHub pre-release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: source/FDGCast-source
+        run: |
+          $tag = "v0.1.0-alpha.$env:GITHUB_RUN_NUMBER"
+          $installer = "installer-output/FDGCast-Studio-Setup.exe"
+          if (!(Test-Path $installer)) { throw "Installer missing; cannot publish pre-release." }
+          $hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          $notes = @"
+          ## FDGCast Studio Windows Alpha
+          Experimental Windows x64 installer based on OBS Studio.
+          
+          **This is a pre-release for testing, not a complete source-level rebrand.**
+          The installer and shortcuts use FDGCast Studio branding, but the application executable remains obs64.exe and the OBS UI and settings may still be present. Companion features are not yet integrated.
+          
+          ### Installation
+          Download FDGCast-Studio-Setup.exe, run it, and use the FDGCast Studio shortcut.
+          
+          ### SHA-256
+          \`$hash\`
+          
+          ### Open-source attribution
+          Based on OBS Studio; upstream licenses and corresponding source obligations apply. Source archive used for this build is available in the repository's source-m1 release.
+          "@
+          gh release create $tag $installer --repo "$env:GITHUB_REPOSITORY" --title "FDGCast Studio $tag (Pre-release)" --notes $notes --prerelease --target "$env:GITHUB_SHA"
+          if ($LASTEXITCODE -ne 0) { throw "GitHub pre-release publication failed" }
       - name: Upload diagnostic logs and outputs
         if: always()
         uses: actions/upload-artifact@v4
