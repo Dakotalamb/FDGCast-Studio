@@ -4,8 +4,9 @@ Fails closed if the expected upstream constructor is not found.
 """
 from pathlib import Path
 import re
+import sys
 
-root = Path(__file__).resolve().parents[1]
+root = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[1]
 candidates = list(root.glob("frontend/**/OBSBasic.cpp")) + list(root.glob("frontend/**/window-basic-main.cpp"))
 candidates = [p for p in candidates if p.is_file()]
 if not candidates:
