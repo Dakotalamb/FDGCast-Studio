@@ -1,6 +1,10 @@
 name: FDGCast Windows alpha test
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/windows-alpha.yml'
 permissions:
   contents: read
 jobs:
@@ -76,6 +80,65 @@ jobs:
         with:
           name: FDGCast-Studio-Windows-Alpha
           path: source/FDGCast-source/FDGCast-Studio-Windows-Alpha.zip
+          if-no-files-found: error
+          retention-days: 30
+      - name: Build Windows setup executable
+        shell: pwsh
+        working-directory: source/FDGCast-source
+        run: |
+          $package = (Resolve-Path "FDGCast-Studio-Windows-Alpha").Path
+          $output = Join-Path (Get-Location) "installer-output"
+          New-Item -ItemType Directory -Force $output | Out-Null
+          $license = Get-ChildItem -Path . -File -Include COPYING,LICENSE,LICENSE.txt -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch '[\\/]build_x(64|86)[\\/]' } | Select-Object -First 1
+          if ($license) { Copy-Item $license.FullName (Join-Path $package "SOURCE-LICENSE.txt") -Force }
+          $iscc = @(
+            "${env:ProgramFiles(x86)}\\Inno Setup 6\\ISCC.exe",
+            "${env:ProgramFiles}\\Inno Setup 6\\ISCC.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (!$iscc) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw "Inno Setup installation failed" }
+            $iscc = @(
+              "${env:ProgramFiles(x86)}\\Inno Setup 6\\ISCC.exe",
+              "${env:ProgramFiles}\\Inno Setup 6\\ISCC.exe"
+            ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          }
+          if (!$iscc) { throw "Inno Setup compiler ISCC.exe not found" }
+          $iss = @'
+          [Setup]
+          AppId={{FDF7C8A4-80CD-4F6A-AD94-9C73F07B45D1}
+          AppName=FDGCast Studio Alpha
+          AppVersion=0.1.0
+          AppPublisher=Forged Destiny Gaming
+          DefaultDirName={autopf}\\FDGCast Studio Alpha
+          DefaultGroupName=FDGCast Studio Alpha
+          OutputDir=installer-output
+          OutputBaseFilename=FDGCast-Studio-Setup
+          Compression=lzma2
+          SolidCompression=yes
+          ArchitecturesAllowed=x64compatible
+          ArchitecturesInstallIn64BitMode=x64compatible
+          UninstallDisplayIcon={app}\\bin\\64bit\\obs64.exe
+          [Files]
+          Source: "FDGCast-Studio-Windows-Alpha\\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+          [Icons]
+          Name: "{group}\\FDGCast Studio Alpha"; Filename: "{app}\\bin\\64bit\\obs64.exe"; WorkingDir: "{app}\\bin\\64bit"
+          Name: "{autodesktop}\\FDGCast Studio Alpha"; Filename: "{app}\\bin\\64bit\\obs64.exe"; WorkingDir: "{app}\\bin\\64bit"; Tasks: desktopicon
+          [Tasks]
+          Name: desktopicon; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"
+          [Run]
+          Filename: "{app}\\bin\\64bit\\obs64.exe"; WorkingDir: "{app}\\bin\\64bit"; Description: "Launch FDGCast Studio Alpha"; Flags: nowait postinstall skipifsilent
+          '@
+          Set-Content -Path "FDGCast-Studio-Installer.iss" -Value $iss -Encoding utf8
+          & $iscc "FDGCast-Studio-Installer.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed" }
+          if (!(Test-Path "installer-output/FDGCast-Studio-Setup.exe")) { throw "Setup executable not created" }
+          Get-FileHash "installer-output/FDGCast-Studio-Setup.exe" -Algorithm SHA256 | Format-List
+      - name: Upload Windows setup executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: FDGCast-Studio-Setup-Windows-x64
+          path: source/FDGCast-source/installer-output/FDGCast-Studio-Setup.exe
           if-no-files-found: error
           retention-days: 30
       - name: Upload diagnostic logs and outputs
