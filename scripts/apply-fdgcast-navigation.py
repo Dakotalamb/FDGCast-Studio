@@ -134,7 +134,10 @@ code = r"""
         statusBar()->showMessage(tr("FDGCast Studio ready — use Go Live to manage platforms"), 8000);
     });
 """
-s=includes+"#include <QMessageBox>
-"+source;const m=re.search(/OBSBasic::OBSBasics*([^;{}]*)s*(?::[^{}]*?)?s*{/s,s);if(!m)throw Error("constructor not found in script");s=s.slice(0,m.index+m[0].length)+"
-"+code+s.slice(m.index+m[0].length);target.write_text(s,encoding="utf-8")
+source = includes + "#include <QMessageBox>\n" + source
+constructor = re.search(r"OBSBasic::OBSBasic\s*\([^;{}]*\)\s*(?::[^{}]*?)?\s*\{", source, re.S)
+if not constructor:
+    raise SystemExit(f"OBSBasic constructor not found after includes in {target}")
+source = source[:constructor.end()] + "\n" + code + source[constructor.end():]
+target.write_text(source, encoding="utf-8")
 print(f"Applied FDGCast Studio UI navigation patch to {target}")
