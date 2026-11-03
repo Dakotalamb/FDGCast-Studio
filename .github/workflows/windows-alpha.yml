@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/windows-alpha.yml'
+      - 'scripts/**'
 permissions:
   contents: write
 jobs:
@@ -45,6 +46,11 @@ jobs:
           if (!(Test-Path "deps/libdshowcapture/src/external/capture-device-support/Library/EGAVResult.cpp")) {
             throw "DirectShow capture-device-support sources still missing after recursive submodule update"
           }
+      - name: Apply FDGCast Studio navigation to OBS source
+        shell: pwsh
+        run: |
+          python scripts/apply-fdgcast-navigation.py source/FDGCast-source
+          if ($LASTEXITCODE -ne 0) { throw "FDGCast navigation source patch failed" }
       - name: Check toolchain
         shell: pwsh
         run: |
