@@ -32,6 +32,8 @@ includes = """#include <QTimer>
 #include <QStatusBar>
 #include <QSizePolicy>
 #include <QFrame>
+#include <QStringList>
+#include <QPoint>
 """
 code = r"""
     // FDGCAST_NAVIGATION_V2 — source-level usability layer.
@@ -128,6 +130,7 @@ code = r"""
         addQuickMenu(tr("Stream Health"), healthMenu);
         addQuickMenu(tr("Workspace"), workspaceMenu);
         addQuickMenu(tr("Help"), guideMenu);
+        setWindowTitle(tr("FDGCast Studio — Alpha"));
         statusBar()->showMessage(tr("FDGCast Studio ready — use Go Live to manage platforms"), 8000);
     });
 """
